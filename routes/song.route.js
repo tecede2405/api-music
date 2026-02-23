@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const multer = require("multer");
-const supabase = require("../config/supabase");
+const cloudinary = require("../config/cloudinary");
 const Song = require("../models/Song");
 const slugify = require("slugify");
 const { webpush, getSubscriptions } = require("../push");
@@ -15,67 +15,93 @@ const upload = multer({
 
 
 /* ================== UPLOAD ================== */
+/* ================== CLOUDINARY STREAM ================== */
+
+const streamUpload = (buffer, category) => {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        resource_type: "video", // ⚠️ mp3 phải dùng video
+        folder: `music/${category || "uncategorized"}`,
+      },
+      (error, result) => {
+        if (error) reject(error);
+        else resolve(result);
+      }
+    );
+
+    stream.end(buffer);
+  });
+};
 
 // Upload 1 bài
 router.post("/upload", upload, async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: "❌ Không có file được tải lên" });
+      return res.status(400).json({
+        error: "❌ Không có file được tải lên",
+      });
     }
 
     const { title, artist, image, category } = req.body;
 
-    const fileName = slugify(req.file.originalname.split(".")[0], {
-      lower: true,
-      strict: true,
-    });
+    const fileName = slugify(
+      req.file.originalname.split(".")[0],
+      {
+        lower: true,
+        strict: true,
+      }
+    );
 
-    const filePath = `music/${category || "uncategorized"}/${Date.now()}-${fileName}.mp3`;
+    // ✅ Upload Cloudinary
+    const result = await streamUpload(
+      req.file.buffer,
+      category,
+      fileName
+    );
 
-    // Upload lên Supabase
-    const { error: uploadError } = await supabase.storage
-      .from("music") // bucket name
-      .upload(filePath, req.file.buffer, {
-        contentType: req.file.mimetype,
-      });
-
-    if (uploadError) {
-      return res.status(400).json({ error: uploadError.message });
-    }
-
-    // Lấy public URL
-    const { data } = supabase.storage
-      .from("music")
-      .getPublicUrl(filePath);
-
+    // ✅ Save DB
     const newSong = await Song.create({
       title,
       artist,
       image,
-      file: data.publicUrl,
+      file: result.secure_url,
       category,
       listens: 0,
     });
 
-    // Push notification (giữ nguyên)
-    const payload = JSON.stringify({
-      title: "🎵 Bài hát mới!",
-      body: `Vừa thêm bài hát: ${newSong.title} - ${newSong.artist}`,
-      icon: "/logo192.png",
-    });
-
-    const subscriptions = await getSubscriptions();
-    for (const sub of subscriptions) {
-      await webpush.sendNotification(sub, payload).catch(console.error);
-    }
-
+    // ✅ TRẢ RESPONSE NGAY
     res.status(201).json({
       message: "✅ Thêm bài hát thành công",
       data: newSong,
     });
+
+    /* ========= PUSH BACKGROUND ========= */
+    setImmediate(async () => {
+      try {
+        const payload = JSON.stringify({
+          title: "🎵 Bài hát mới!",
+          body: `Vừa thêm bài hát: ${newSong.title} - ${newSong.artist}`,
+          icon: "/logo192.png",
+        });
+
+        const subscriptions = await getSubscriptions();
+
+        for (const sub of subscriptions) {
+          webpush
+            .sendNotification(sub, payload)
+            .catch(console.error);
+        }
+      } catch (err) {
+        console.error("Push error:", err);
+      }
+    });
+
   } catch (err) {
     console.error("❌ Upload failed:", err);
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({
+      error: err.message,
+    });
   }
 });
 
