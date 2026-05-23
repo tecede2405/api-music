@@ -85,10 +85,6 @@ app.use("/api/songs", require("./routes/song.route"));
 // Auth
 app.use("/api/auth", require("./routes/auth.route"));
 
-// Analytics
-app.use("/api/track", require("./routes/track.route"));
-app.use("/api/stats", require("./routes/stats.route"));
-
 /* ================= PUSH NOTIFICATION ================= */
 const { addSubscription, webpush, getSubscriptions } = require("./push");
 
