@@ -123,7 +123,7 @@ router.get("/stream/:id", async (req, res) => {
         size: fileSize,
         expireAt: Date.now() + 50 * 60 * 1000 
       });
-    }gỉ
+    }
 
     const downloadUrl = `https://api.telegram.org/file/bot${process.env.TELE_BOT_TOKEN}/${filePath}`;
 
