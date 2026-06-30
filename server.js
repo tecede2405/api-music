@@ -82,6 +82,8 @@ app.post("/api/chat", async (req, res) => {
 // Songs
 app.use("/api/songs", require("./routes/song.route"));
 
+// Storage
+app.use("/api/storage", require("./routes/storage.route"));
 // Auth
 app.use("/api/auth", require("./routes/auth.route"));
 
