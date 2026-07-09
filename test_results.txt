@@ -1,0 +1,16 @@
+✅ config/database OK
+✅ repositories/song OK
+✅ repositories/storage OK
+✅ repositories/subscription OK
+✅ services/song OK
+✅ services/storage OK
+✅ services/notification OK
+✅ services/chat OK
+✅ services/auth OK
+✅ controllers/song OK
+✅ controllers/storage OK
+✅ controllers/notification OK
+✅ controllers/chat OK
+✅ controllers/auth OK
+✅ middlewares/upload OK
+✅ routes/index OK
