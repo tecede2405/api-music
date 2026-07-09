@@ -22,7 +22,7 @@ router.get("/category/:category", songController.getByCategory);
 router.put("/:id", songController.update);
 
 // Tăng lượt nghe
-router.patch("/:id/listen", songController.listen);
+router.put("/:id/listen", songController.listen);
 
 // Xóa bài hát
 router.delete("/:id", songController.remove);

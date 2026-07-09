@@ -17,7 +17,7 @@ app.use(
       "https://tecede.vercel.app",
       "https://tecede.netlify.app",
     ],
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   })

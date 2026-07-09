@@ -8,6 +8,7 @@ router.post("/upload", uploadMultiple, storageController.upload);
 
 // Stream file theo ID
 router.get("/stream/:id", storageController.stream);
+router.get("/file/:id", storageController.stream);
 
 // Lấy tất cả file
 router.get("/", storageController.getAll);

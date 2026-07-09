@@ -11,7 +11,7 @@ class SongController {
       }
 
       const newSong = await songService.uploadSong({ file, title, artist, image, category });
-      res.json(newSong);
+      res.status(201).json({ message: "Upload thành công", song: newSong });
     } catch (err) {
       console.error("Upload error:", err);
       res.status(500).json({ error: "Upload thất bại", detail: err.message });

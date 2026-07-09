@@ -135,8 +135,14 @@ class StorageService {
         "Content-Type": contentType,
       });
 
-      https.get(downloadUrl, { headers: { range: req.headers.range } }, (stream) => {
+      const request = https.get(downloadUrl, { headers: { range: req.headers.range } }, (stream) => {
         stream.pipe(res);
+        stream.on("error", () => { if (!res.destroyed) res.end(); });
+      });
+      request.on("error", (err) => {
+        console.error("Storage stream error:", err.message);
+        if (!res.headersSent) res.status(500).json({ error: "Stream thất bại" });
+        else if (!res.destroyed) res.end();
       });
     } else {
       res.writeHead(200, {
@@ -145,8 +151,14 @@ class StorageService {
         "Accept-Ranges": "bytes",
       });
 
-      https.get(downloadUrl, (stream) => {
+      const request = https.get(downloadUrl, (stream) => {
         stream.pipe(res);
+        stream.on("error", () => { if (!res.destroyed) res.end(); });
+      });
+      request.on("error", (err) => {
+        console.error("Storage stream error:", err.message);
+        if (!res.headersSent) res.status(500).json({ error: "Stream thất bại" });
+        else if (!res.destroyed) res.end();
       });
     }
   }
