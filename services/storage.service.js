@@ -47,46 +47,61 @@ class StorageService {
         telegramFileName = isVideo ? "video.mp4" : "image.jpg";
       }
 
-      // Tự động nén thành WebP nếu là hình ảnh
+      let newItem;
+
       if (isImage) {
+        // Nén ảnh thành WebP
         mimeType = "image/webp";
         dbStorageName = dbStorageName.replace(/\.[^/.]+$/, "") + ".webp";
-        telegramFileName = telegramFileName.replace(/\.[^/.]+$/, "") + ".webp";
+        const imageName = sanitizeFileName(dbStorageName.replace(/\.[^/.]+$/, ""));
 
         fileBuffer = await sharp(file.buffer).webp({ quality: 80 }).toBuffer();
         fileSize = fileBuffer.length;
-      }
 
-      const form = new FormData();
-      form.append("chat_id", process.env.TELE_CHAT_ID);
+        // Upload lên ImgBB qua base64
+        const base64Image = fileBuffer.toString("base64");
+        const imgbbForm = new FormData();
+        imgbbForm.append("key", process.env.IMGBB_API_KEY);
+        imgbbForm.append("image", base64Image);
+        if (imageName) imgbbForm.append("name", imageName);
 
-      let telegramUrl = "";
-      if (isVideo) {
-        telegramUrl = `https://api.telegram.org/bot${process.env.TELE_BOT_TOKEN}/sendVideo`;
+        const imgbbRes = await axios.post(
+          "https://api.imgbb.com/1/upload",
+          imgbbForm,
+          { headers: imgbbForm.getHeaders() }
+        );
+
+        if (!imgbbRes.data.success) {
+          throw new Error("ImgBB upload thất bại: " + JSON.stringify(imgbbRes.data));
+        }
+
+        const imgbbData = imgbbRes.data.data;
+
+        // Lưu vào MongoDB với url ImgBB
+        newItem = await storageRepository.create({
+          name: dbStorageName || "Untitled File",
+          type: "image",
+          fileId: imgbbData.id,
+          url: imgbbData.display_url,
+          size: fileSize,
+        });
+      } else {
+        // Video: giữ nguyên Telegram
+        const form = new FormData();
+        form.append("chat_id", process.env.TELE_CHAT_ID);
         form.append("video", fileBuffer, { filename: telegramFileName, contentType: mimeType });
-      } else {
-        telegramUrl = `https://api.telegram.org/bot${process.env.TELE_BOT_TOKEN}/sendPhoto`;
-        form.append("photo", fileBuffer, { filename: telegramFileName, contentType: mimeType });
+
+        const telegramUrl = `https://api.telegram.org/bot${process.env.TELE_BOT_TOKEN}/sendVideo`;
+        const teleRes = await axios.post(telegramUrl, form, { headers: form.getHeaders() });
+        const fileId = teleRes.data.result.video.file_id;
+
+        newItem = await storageRepository.create({
+          name: dbStorageName || "Untitled File",
+          type: "video",
+          fileId: fileId,
+          size: fileSize,
+        });
       }
-
-      // Đẩy dữ liệu qua Telegram Bot
-      const teleRes = await axios.post(telegramUrl, form, { headers: form.getHeaders() });
-
-      let fileId = "";
-      if (isVideo) {
-        fileId = teleRes.data.result.video.file_id;
-      } else {
-        const photos = teleRes.data.result.photo;
-        fileId = photos[photos.length - 1].file_id;
-      }
-
-      // Lưu tài nguyên vào MongoDB
-      const newItem = await storageRepository.create({
-        name: dbStorageName || "Untitled File",
-        type: isVideo ? "video" : "image",
-        fileId: fileId,
-        size: fileSize,
-      });
 
       savedItems.push(newItem);
     }
@@ -98,6 +113,12 @@ class StorageService {
     const item = await storageRepository.findById(id);
     if (!item) return res.status(404).json({ error: "Không tìm thấy file" });
 
+    // Ảnh có URL ImgBB → redirect thẳng
+    if (item.type === "image" && item.url) {
+      return res.redirect(item.url);
+    }
+
+    // Ảnh cũ (url null) hoặc video → stream qua Telegram như cũ
     let filePath, fileSize;
 
     if (telegramCache.has(item.fileId) && telegramCache.get(item.fileId).expireAt > Date.now()) {
