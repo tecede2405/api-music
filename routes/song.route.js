@@ -6,6 +6,12 @@ const { uploadSingle } = require("../middlewares/upload.middleware");
 // Upload bài hát
 router.post("/upload", uploadSingle, songController.upload);
 
+// Tổng lượt nghe (phải đặt trước /:id)
+router.get("/stats/total-listens", songController.totalListens);
+
+// Lấy bài hát theo category (phải đặt trước /:id)
+router.get("/category/:category", songController.getByCategory);
+
 // Stream nhạc
 router.get("/stream/:id", songController.stream);
 
@@ -15,9 +21,6 @@ router.get("/", songController.getAll);
 // Lấy bài hát theo ID
 router.get("/:id", songController.getById);
 
-// Lấy bài hát theo category
-router.get("/category/:category", songController.getByCategory);
-
 // Cập nhật bài hát
 router.put("/:id", songController.update);
 
@@ -26,8 +29,5 @@ router.put("/:id/listen", songController.listen);
 
 // Xóa bài hát
 router.delete("/:id", songController.remove);
-
-// Tổng lượt nghe
-router.get("/stats/total-listens", songController.totalListens);
 
 module.exports = router;
